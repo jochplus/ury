@@ -8,17 +8,27 @@ import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './config';
  */
 export function resolveLanguage(): string {
   // 1. Frappe boot object
-  const frappeLang: string | undefined =
-    (window as any)?.frappe?.boot?.lang;
-  if (frappeLang && SUPPORTED_LANGUAGES[frappeLang]) {
+  const frappeLang = supported((window as any)?.frappe?.boot?.lang);
+  if (frappeLang) {
     return frappeLang;
   }
 
   // 2. Local storage override
-  const storedLang = localStorage.getItem('ury_language');
-  if (storedLang && SUPPORTED_LANGUAGES[storedLang]) {
+  const storedLang = supported(localStorage.getItem('ury_language'));
+  if (storedLang) {
     return storedLang;
   }
 
   return DEFAULT_LANGUAGE;
+}
+
+/**
+ * The language itself, or its base when only the base is bundled:
+ * Frappe users can be set to a regional code such as "pt-PT" or "pt-BR".
+ */
+function supported(lang: string | null | undefined): string | undefined {
+  if (!lang) return undefined;
+  if (SUPPORTED_LANGUAGES[lang]) return lang;
+  const base = lang.split(/[-_]/)[0].toLowerCase();
+  return SUPPORTED_LANGUAGES[base] ? base : undefined;
 }

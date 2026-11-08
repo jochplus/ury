@@ -658,6 +658,13 @@ def _run_configure_data(data, results, user):
             p_doc.save(ignore_permissions=True)
             results["pos_profile"] = pos_profile_name
 
+        # The production unit needs a production department (mandatory), and
+        # the wizard never created one: the unit's insert failed and the whole
+        # step was logged as "Failed to create POS Profile".
+        department_name = _ensure_production_department(
+            branch_name, default_company, warehouse_name
+        )
+
         # Create URY Production Unit
         production_unit_name = f"Kitchen - {branch_name}"
         if not frappe.db.exists("URY Production Unit", production_unit_name):
@@ -667,6 +674,7 @@ def _run_configure_data(data, results, user):
                 "pos_profile": pos_profile_name,
                 "branch": branch_name,
                 "warehouse": warehouse_name,
+                "department": department_name,
                 "item_groups": [{"item_group": item_group}]
             })
             prod_doc.insert(ignore_permissions=True)
@@ -682,3 +690,23 @@ def _run_configure_data(data, results, user):
 
     frappe.db.commit()
     return {"status": "success", "results": results}
+
+def _ensure_production_department(branch_name, company, warehouse_name):
+    """The branch's kitchen department, created if missing. Returns its name."""
+    name = f"Kitchen - {branch_name}"
+    if frappe.db.exists("URY Production Department", name):
+        return name
+    cost_center = frappe.get_cached_value("Company", company, "cost_center") or frappe.db.get_value(
+        "Cost Center", {"company": company, "is_group": 0}, "name"
+    )
+    doc = frappe.get_doc({
+        "doctype": "URY Production Department",
+        "department_name": name,
+        "enabled": 1,
+        "company": company,
+        "branch": branch_name,
+        "department_warehouse": warehouse_name,
+        "cost_center": cost_center,
+    })
+    doc.insert(ignore_permissions=True)
+    return doc.name
